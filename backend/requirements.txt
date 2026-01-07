@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+requests
+beautifulsoup4
+sentence-transformers
+scikit-learn
+cryptography
+deep-translator
+networkx
+numpy

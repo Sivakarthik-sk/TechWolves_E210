@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SiteSherpa AI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { 
+            width: 380px; height: 500px; margin: 0; background: #0f172a; 
+            color: white; font-family: 'Segoe UI', sans-serif; 
+            display: flex; flex-direction: column;
+        }
+
+        /* Top Bar */
+        .top-bar { padding: 15px; background: #1e293b; border-bottom: 1px solid #334155; }
+        
+        select { 
+            width: 100%; padding: 8px; background: #334155; color: white; 
+            border: 1px solid #475569; border-radius: 6px; margin-bottom: 10px;
+        }
+
+        .chat-input-area { display: flex; gap: 8px; }
+        
+        input { 
+            flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #475569; 
+            background: #0f172a; color: white; outline: none;
+        }
+        input:focus { border-color: #38bdf8; }
+
+        .btn { 
+            padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; color: white; 
+        }
+        .mic { background: #ef4444; }
+        .go { background: #3b82f6; }
+
+        /* Chat History (The Intelligence Log) */
+        .chat-history { 
+            flex: 1; padding: 15px; overflow-y: auto; font-size: 13px;
+        }
+        .msg { margin-bottom: 8px; padding: 8px; border-radius: 6px; }
+        .msg.user { background: #334155; align-self: flex-end; text-align: right; }
+        .msg.ai { background: #1e293b; border-left: 3px solid #38bdf8; color: #cbd5e1; }
+        .msg.plan { color: #f59e0b; font-family: monospace; font-size: 11px; }
+
+        /* Hidden Login Form */
+        #dynamic-form { 
+            display: none; padding: 15px; background: #111; border-top: 1px solid #333; 
+        }
+        .login-input { width: 90%; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <select id="langSelect">
+            <option value="en-US">🇺🇸 English</option>
+            <option value="hi-IN">🇮🇳 Hindi</option>
+            <option value="ta-IN">🇮🇳 Tamil</option>
+        </select>
+        
+        <div class="chat-input-area">
+            <input type="text" id="userInput" placeholder="Type command...">
+            <button id="micBtn" class="btn mic"><i class="fas fa-microphone"></i></button>
+            <button id="sendBtn" class="btn go"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <div class="chat-history" id="chatBox">
+        <div class="msg ai">👋 Ready! Try: "Login with Siva as user"</div>
+    </div>
+
+    <div id="dynamic-form">
+        <p style="margin:0 0 5px 0; font-size:12px;">🔒 Auth Required</p>
+        <div id="form-inputs"></div>
+        <button id="dynamicSubmitBtn" class="btn go" style="width:100%">Login</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
