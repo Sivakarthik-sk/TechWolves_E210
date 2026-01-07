@@ -1,15 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "SiteSherpa AI",
-  "version": "4.0",
-  "permissions": ["activeTab", "scripting"],
+  "name": "SiteSherpa Cortex",
+  "version": "10.0",
+  "description": "Autonomous Neural Interface for the Web",
+  "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
-  "action": { "default_popup": "popup.html" },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Neural Cockpit"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["sidebar.html", "sidebar.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "all_frames": true,
+      "css": ["sidebar.css"], 
       "run_at": "document_idle"
     }
   ]

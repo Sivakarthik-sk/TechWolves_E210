@@ -1,34 +1,32 @@
 document.addEventListener('DOMContentLoaded', () => {
     const chatBox = document.getElementById('chatBox');
     const input = document.getElementById('userInput');
-    
-    function addMsg(text, type) {
-        if(!chatBox) return;
+    const safetyModal = document.getElementById('safetyModal');
+    let pendingAction = null;
+
+    function addMsg(html, type) {
         const div = document.createElement('div');
         div.className = `msg ${type}`;
-        div.innerText = text;
+        div.innerHTML = html;
         chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Voice Setup
-    if (window.webkitSpeechRecognition) {
-        const rec = new webkitSpeechRecognition();
-        document.getElementById('micBtn').onclick = () => {
-            rec.lang = document.getElementById('langSelect').value;
-            rec.start();
-            addMsg("Listening...", "plan");
-        };
-        rec.onresult = (e) => {
-            input.value = e.results[0][0].transcript;
-            triggerBackend();
-        };
+    function renderPlan(plan) {
+        if (!plan) return "";
+        let html = `<div class="plan-card">`;
+        plan.forEach(step => {
+            const icon = step.status === 'done' ? 'check-circle' : 'circle';
+            html += `<div class="plan-step ${step.status === 'pending' ? 'active' : ''}">
+                <i class="fas fa-${icon}"></i> ${step.action}
+            </div>`;
+        });
+        html += `</div>`;
+        return html;
     }
 
-    document.getElementById('sendBtn').onclick = () => triggerBackend();
-
-    async function triggerBackend(creds = null) {
-        if(input.value) addMsg(input.value, 'user');
+    async function triggerBackend(creds = null, confirmation = false) {
+        if (!confirmation && input.value) addMsg(input.value, 'user');
         
         const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
         
@@ -36,25 +34,37 @@ document.addEventListener('DOMContentLoaded', () => {
             target: { tabId: tab.id },
             func: () => document.body.outerHTML
         }, async (res) => {
-            if (!res || !res[0]) { addMsg("Error: Refresh Page", "plan"); return; }
+            if (!res || !res[0]) return;
             
             try {
-                // Use localhost to avoid permission blocks
                 const req = await fetch('http://localhost:8000/navigate', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        query: input.value,
+                        query: confirmation ? pendingAction : input.value,
                         current_url: tab.url,
                         html_content: res[0].result,
-                        dynamic_credentials: creds || {}
+                        dynamic_credentials: creds || {},
+                        user_confirmation: confirmation
                     })
                 });
                 const data = await req.json();
-                addMsg(data.message, 'ai');
                 
-                input.value = ""; // Clear input
+                // RENDER PLAN + MESSAGE
+                const planHtml = renderPlan(data.plan);
+                addMsg(`${data.message}<br>${planHtml}`, 'ai');
 
+                // SAFETY STOP
+                if (data.action === "require_safety_confirmation") {
+                    safetyModal.style.display = 'block';
+                    document.getElementById('safetyMsg').innerText = data.risk_msg;
+                    pendingAction = input.value; // Store original query
+                    return;
+                } else {
+                    safetyModal.style.display = 'none';
+                }
+
+                // AUTH FORM
                 if (data.action === "ask_dynamic_credentials") {
                     const con = document.getElementById('form-inputs');
                     con.innerHTML = "";
@@ -66,15 +76,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 } else {
                     document.getElementById('dynamic-form').style.display = 'none';
-                    chrome.tabs.sendMessage(tab.id, data);
+                    if(data.action !== "require_safety_confirmation") {
+                         chrome.tabs.sendMessage(tab.id, data);
+                         input.value = "";
+                    }
                 }
-            } catch (e) { addMsg("Backend Offline", "plan"); }
+            } catch (e) { addMsg("Cortex Offline", "ai"); }
         });
     }
+
+    document.getElementById('sendBtn').onclick = () => triggerBackend();
     
-    document.getElementById('dynamicSubmitBtn').onclick = () => {
+    document.getElementById('formSubmit').onclick = () => {
         const creds = {};
         document.querySelectorAll('.login-input').forEach(i => creds[i.placeholder] = i.value);
         triggerBackend(creds);
     };
+
+    document.getElementById('safetyConfirmBtn').onclick = () => {
+        triggerBackend(null, true);
+    };
+    
+    // Voice (Standard)
+    if (window.webkitSpeechRecognition) {
+        const rec = new webkitSpeechRecognition();
+        document.getElementById('micBtn').onclick = () => rec.start();
+        rec.onresult = (e) => { input.value = e.results[0][0].transcript; triggerBackend(); };
+    }
 });

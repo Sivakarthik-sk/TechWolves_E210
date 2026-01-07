@@ -2,76 +2,72 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SiteSherpa AI</title>
+    <title>SiteSherpa Cortex</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { 
-            width: 380px; height: 500px; margin: 0; background: #0f172a; 
-            color: white; font-family: 'Segoe UI', sans-serif; 
-            display: flex; flex-direction: column;
-        }
-
-        /* Top Bar */
-        .top-bar { padding: 15px; background: #1e293b; border-bottom: 1px solid #334155; }
+        body { width: 380px; height: 550px; margin: 0; background: #0b0f19; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; }
         
-        select { 
-            width: 100%; padding: 8px; background: #334155; color: white; 
-            border: 1px solid #475569; border-radius: 6px; margin-bottom: 10px;
-        }
+        .header { padding: 15px; background: #111827; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; }
+        .badge { background: #3b82f6; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 
-        .chat-input-area { display: flex; gap: 8px; }
+        .chat-area { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         
-        input { 
-            flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #475569; 
-            background: #0f172a; color: white; outline: none;
-        }
-        input:focus { border-color: #38bdf8; }
+        .msg { padding: 10px; border-radius: 8px; font-size: 13px; line-height: 1.4; max-width: 85%; }
+        .user { background: #374151; align-self: flex-end; border-bottom-right-radius: 0; }
+        .ai { background: #1f2937; align-self: flex-start; border-left: 3px solid #3b82f6; border-bottom-left-radius: 0; }
+        
+        /* PLAN GRAPH VISUALIZER */
+        .plan-card { background: #000; border: 1px solid #333; padding: 10px; border-radius: 6px; margin-top: 5px; }
+        .plan-step { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 4px; color: #9ca3af; }
+        .plan-step.active { color: #3b82f6; font-weight: bold; }
+        .plan-step i { font-size: 8px; }
 
-        .btn { 
-            padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; color: white; 
-        }
-        .mic { background: #ef4444; }
-        .go { background: #3b82f6; }
+        /* SAFETY ALERT */
+        .safety-modal { background: #450a0a; border: 1px solid #ef4444; padding: 10px; border-radius: 6px; display: none; margin-top: 10px; }
+        .safety-title { color: #fca5a5; font-weight: bold; font-size: 12px; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+        .safety-btns { display: flex; gap: 5px; margin-top: 10px; }
+        
+        .input-area { padding: 15px; background: #111827; border-top: 1px solid #374151; display: flex; gap: 8px; }
+        input { flex: 1; background: #1f2937; border: 1px solid #374151; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        button { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; }
+        .mic { background: #ef4444; } .go { background: #3b82f6; } .confirm { background: #ef4444; width: 100%; }
 
-        /* Chat History (The Intelligence Log) */
-        .chat-history { 
-            flex: 1; padding: 15px; overflow-y: auto; font-size: 13px;
-        }
-        .msg { margin-bottom: 8px; padding: 8px; border-radius: 6px; }
-        .msg.user { background: #334155; align-self: flex-end; text-align: right; }
-        .msg.ai { background: #1e293b; border-left: 3px solid #38bdf8; color: #cbd5e1; }
-        .msg.plan { color: #f59e0b; font-family: monospace; font-size: 11px; }
-
-        /* Hidden Login Form */
-        #dynamic-form { 
-            display: none; padding: 15px; background: #111; border-top: 1px solid #333; 
-        }
-        .login-input { width: 90%; margin-bottom: 5px; }
+        /* Dynamic Form */
+        #dynamic-form { display: none; background: #1f2937; padding: 10px; margin: 10px; border-radius: 6px; }
+        .login-input { width: 90%; margin-bottom: 5px; padding: 8px; background: #374151; border: 1px solid #4b5563; color: white; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <select id="langSelect">
-            <option value="en-US">🇺🇸 English</option>
-            <option value="hi-IN">🇮🇳 Hindi</option>
-            <option value="ta-IN">🇮🇳 Tamil</option>
-        </select>
-        
-        <div class="chat-input-area">
-            <input type="text" id="userInput" placeholder="Type command...">
-            <button id="micBtn" class="btn mic"><i class="fas fa-microphone"></i></button>
-            <button id="sendBtn" class="btn go"><i class="fas fa-paper-plane"></i></button>
+    <div class="header">
+        <span>SiteSherpa Cortex</span>
+        <span class="badge">TIER-1 SYSTEM</span>
+    </div>
+
+    <div class="chat-area" id="chatBox">
+        <div class="msg ai">
+            System Online. 
+            <br><i>Ready for complex tasking.</i>
         </div>
     </div>
 
-    <div class="chat-history" id="chatBox">
-        <div class="msg ai">👋 Ready! Try: "Login with Siva as user"</div>
+    <div id="safetyModal" class="safety-modal">
+        <div class="safety-title"><i class="fas fa-exclamation-triangle"></i> HIGH RISK ACTION</div>
+        <div id="safetyMsg" style="font-size: 11px; color: #fee2e2;"></div>
+        <div class="safety-btns">
+            <button id="safetyConfirmBtn" class="confirm">AUTHORIZE</button>
+        </div>
     </div>
 
     <div id="dynamic-form">
-        <p style="margin:0 0 5px 0; font-size:12px;">🔒 Auth Required</p>
+        <div style="font-size:11px; margin-bottom:5px; color:#9ca3af;">AUTHENTICATION REQUIRED</div>
         <div id="form-inputs"></div>
-        <button id="dynamicSubmitBtn" class="btn go" style="width:100%">Login</button>
+        <button id="formSubmit" class="go" style="width:100%; margin-top:5px;">Login</button>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Command...">
+        <button id="micBtn" class="mic"><i class="fas fa-microphone"></i></button>
+        <button id="sendBtn" class="go"><i class="fas fa-paper-plane"></i></button>
     </div>
 
     <script src="popup.js"></script>

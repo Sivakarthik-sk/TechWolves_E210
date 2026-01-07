@@ -1,0 +1,20 @@
+{
+  "sites": {
+    "anokha.amrita.edu": {
+      "login": {
+        "action": "secure_autofill",
+        "timestamp": 1767809435.0652678
+      }
+    },
+    "aumscn.amrita.edu": {
+      "sign in": {
+        "action": "spotlight_click",
+        "timestamp": 1767809467.509661
+      },
+      "login with username as nc.sc.u4cse24230 and password as siva@123": {
+        "action": "secure_autofill",
+        "timestamp": 1767809502.545005
+      }
+    }
+  }
+}

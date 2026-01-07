@@ -9,3 +9,4 @@ cryptography
 deep-translator
 networkx
 numpy
+pandas

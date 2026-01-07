@@ -1,115 +1,142 @@
 import uvicorn
 import re
 import traceback
+import json
+import os
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from bs4 import BeautifulSoup
+
+# --- 1. NEURAL CORE ---
+print("🧠 BOOTING CORTEX [INTERACTIVE MODE]...")
 try:
     from sentence_transformers import SentenceTransformer, util
     from deep_translator import GoogleTranslator
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    translator = GoogleTranslator(source='auto', target='en')
+    print("✅ NEURAL ENGINE: ONLINE")
 except:
-    pass
+    model = None
+    print("⚠️ NEURAL ENGINE: OFFLINE")
+
+# --- 2. VAULT (Optional) ---
 try:
     from vault import get_credential, save_credential
 except:
-    def get_credential(d): return None
+    def get_credential(d): return {}
     def save_credential(d, c): pass
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-print("🧠 CORTEX v10: COMBO-MOVE ENGINE READY")
-try:
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    translator = GoogleTranslator(source='auto', target='en')
-except:
-    model = None
 
 class UserQuery(BaseModel):
     query: str
     current_url: str
     html_content: str = ""
     dynamic_credentials: dict = {}
+    language: str = "en"
 
 @app.post("/navigate")
 async def navigate(data: UserQuery):
     try:
-        # 1. TRANSLATE & PARSE
-        eng_query = data.query.lower()
-        if model:
-            try: eng_query = translator.translate(data.query).lower()
+        # SETUP
+        raw_query = data.query
+        eng_query = raw_query.lower()
+        if model and "en" not in data.language:
+            try: eng_query = translator.translate(raw_query).lower()
             except: pass
-        
+
         domain = data.current_url.split("//")[-1].split("/")[0]
         soup = BeautifulSoup(data.html_content, 'html.parser')
-
-        # 2. EXTRACT CREDENTIALS FROM SENTENCE
-        nl_creds = {}
-        if "user" in eng_query or "pass" in eng_query:
-            user_match = re.search(r"(user|id|username|email)\s+(?:is|as)?\s+([a-zA-Z0-9@.]+)", eng_query)
-            pass_match = re.search(r"(pass|password|code)\s+(?:is|as)?\s+([a-zA-Z0-9@.]+)", eng_query)
-            if user_match: nl_creds["Username"] = user_match.group(2)
-            if pass_match: nl_creds["Password"] = pass_match.group(2)
         
-        final_creds = {**data.dynamic_credentials, **nl_creds}
+        print(f"🧠 PROCESSING: {eng_query} (Creds provided: {bool(data.dynamic_credentials)})")
+        
+        response = {"message": "Processing...", "plan": [], "action": None}
 
-        # 3. INTELLIGENT LOGIN LOGIC
+        # 1. EXTRACT DATA FROM PROMPT
+        extracted_data = {}
+        if "user" in eng_query or "email" in eng_query:
+            match = re.search(r"(email|mail|user|id)\s+(?:is|as)?\s+([a-zA-Z0-9@._]+)", eng_query)
+            if match: extracted_data["Username"] = match.group(2)
+        if "pass" in eng_query:
+            match = re.search(r"(pass|password|code)\s+(?:is|as)?\s+([a-zA-Z0-9@._!#]+)", eng_query)
+            if match: extracted_data["Password"] = match.group(2)
+
+        # Merge with any credentials passed from the Popup UI
+        final_creds = {**extracted_data, **data.dynamic_credentials}
+
+        # 2. LOGIC: LOGIN FLOW
         if "login" in eng_query or "sign in" in eng_query or final_creds:
-            if final_creds: save_credential(domain, final_creds)
-            creds_to_use = final_creds or get_credential(domain)
-
-            # CHECK VISIBILITY: Are there actual inputs on screen?
-            visible_inputs = [i for i in soup.find_all('input') if i.get('type') not in ['hidden', 'submit']]
+            
+            # A. Check for Visible Inputs
+            visible_inputs = [i for i in soup.find_all(['input', 'select']) 
+                              if i.get('type') not in ['hidden', 'submit', 'button']]
             
             if visible_inputs:
-                # Case A: Form is open -> Just Fill
-                if creds_to_use:
-                    return {"action": "secure_autofill", "credentials": creds_to_use, "message": "Logging in..."}
-                return {"action": "ask_dynamic_credentials", "fields": [i.get('placeholder') or "Field" for i in visible_inputs], "message": "Enter details."}
-            
+                # CRITICAL CHANGE: If we lack a password, ASK THE USER
+                if not final_creds.get("Password") and not final_creds.get("Username"):
+                    return {
+                        "action": "ask_credentials", # <--- Triggers Popup
+                        "message": "Please enter your credentials.",
+                        "plan": [{"step": 1, "action": "Login Form Detected", "status": "done"}]
+                    }
+                
+                # If we HAVE credentials, Fill & Submit
+                response["action"] = "secure_autofill"
+                response["credentials"] = final_creds
+                response["message"] = "Logging in..."
+                response["plan"].append({"step": 1, "action": "Credentials Received", "status": "done"})
+                response["plan"].append({"step": 2, "action": "Autofill & Submit", "status": "active"})
+                
+                # Save for future
+                save_credential(domain, final_creds)
+                return response
+
+            # B. If Inputs Hidden -> Click 'Login' Button first
             else:
-                # Case B: Form is HIDDEN -> Click Button THEN Fill (The Fix)
-                # Find the login button
                 login_btn = None
                 for el in soup.find_all(['a', 'button', 'span', 'div']):
-                    t = el.get_text(" ", strip=True).lower()
-                    if t in ['login', 'sign in', 'login / signup', 'log in']:
+                    if el.get_text(" ", strip=True).lower() in ['login', 'sign in', 'log in']:
                         login_btn = el
                         break
                 
                 if login_btn:
-                    if creds_to_use:
-                        # NEW ACTION: OPEN & FILL
-                        return {
-                            "action": "open_and_fill",
-                            "selector": f"#{login_btn.get('id')}" if login_btn.get('id') else None,
-                            "target_text": login_btn.get_text(strip=True),
-                            "credentials": creds_to_use,
-                            "message": "Opening login form & autofilling..."
-                        }
+                    # If we have creds, go into Combo Mode
+                    if final_creds.get("Password"):
+                        response["action"] = "open_and_fill"
+                        response["target_text"] = login_btn.get_text(strip=True)
+                        response["credentials"] = final_creds
+                        response["message"] = "Opening Login..."
+                    # If no creds, just click the button, next loop will catch inputs
                     else:
-                        return {"action": "hunter_click", "target_text": login_btn.get_text(strip=True), "message": "Clicking Login..."}
+                        response["action"] = "spotlight_click"
+                        response["target_text"] = login_btn.get_text(strip=True)
+                        response["message"] = "Clicking Login..."
 
-        # 4. NAVIGATION
-        candidates, texts = [], []
-        for el in soup.find_all(['a', 'button', 'div', 'span']):
-            t = el.get_text(" ", strip=True)
-            if len(t) > 2 and len(t) < 50:
-                candidates.append(el)
-                texts.append(t)
-        
-        if candidates and model:
-            scores = util.cos_sim(model.encode(eng_query), model.encode(texts))[0]
-            best = candidates[scores.argmax()]
-            if scores[scores.argmax()] > 0.25:
-                return {"action": "spotlight_click", "target_text": best.get_text(" ", strip=True), "message": f"Opening {texts[scores.argmax()]}..."}
+        # 3. LOGIC: NAVIGATION (Default)
+        elif not response["action"]:
+            candidates, texts = [], []
+            for el in soup.find_all(['a', 'button', 'div', 'span', 'li']):
+                t = el.get_text(" ", strip=True)
+                if t and len(t) < 50:
+                    candidates.append(el)
+                    texts.append(t)
+            
+            if candidates and model:
+                scores = util.cos_sim(model.encode(eng_query), model.encode(texts))[0]
+                if scores.max() > 0.25:
+                    target = texts[scores.argmax()]
+                    response["action"] = "spotlight_click"
+                    response["target_text"] = target
+                    response["message"] = f"Clicking '{target}'"
 
-        return {"action": "speak", "message": "Ready."}
+        return response
 
     except Exception:
         traceback.print_exc()
-        return {"action": "speak", "message": "Error."}
+        return {"action": "speak", "message": "System Error"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

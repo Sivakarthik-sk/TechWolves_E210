@@ -1,0 +1,5 @@
+timestamp,domain,task,steps,success,time_taken
+1767803863.8659537,anokha.amrita.edu,login,3,True,28.708441972732544
+1767803899.5245376,aumscn.amrita.edu,login,3,True,64.36702585220337
+1767803919.3673725,aumscn.amrita.edu,attendance summary,2,True,84.20986080169678
+1767803937.9907906,aumscn.amrita.edu,attendance summary for semester4,2,True,102.83327889442444
