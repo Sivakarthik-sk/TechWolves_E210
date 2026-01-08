@@ -1,7 +1,7 @@
 {
     "aumscn.amrita.edu": {
-        "Username": "gAAAAABpXqQVlYu5tEqg6rZUzrykIjUcWVHu4LbaShI_Wfye5PUz7Sbm7aj06jjXqUMf1RCKet-zaw0IZAoswCxWQtPCa8qQhaYeDKDndfV1OhPBBgpmxc8=",
-        "Password": "gAAAAABpXqQVuvggJahVPJ1gnayNdarfz9bLo4qhYNxF6pArfGNzsWZRsgMMyNS1TaSL39oFvTP7OXJ_4dA9KC78g-pNFvKlig=="
+        "Username": "gAAAAABpXuG9Zj8VesUHHbZLQumVYUfei1PAhqzun3RbSXx7tSQs9EU1oQPWu-tXdoeSGyiYQdSz2l3ZI18nwp4m9mmY8trUGSjRdGe0TviYWAfsdZcGBbQ=",
+        "Password": "gAAAAABpXuG9HoodKeeerCarBO4hOu8rIWvPB3IXyAb186H89McTHv61JXXltfSRyIxlbo0pR9vUQ-MibESsCIPfKYrFbEvn0Q=="
     },
     "anokha.amrita.edu": {
         "Username": "gAAAAABpXqL36CkMkbLw43uOl7S_Zg5tATZINBxKKMWyCdn26I-CnEoguYtUZxKOFJ7iRkABRfmgDIIBhjKz4gzpy6cOK9GlyD0egh02JBfpT-lK9m7fsBk=",
@@ -10,5 +10,8 @@
     "www.amrita.edu": {
         "Username": "gAAAAABpXqPSCnxUy4SqWDD-DeNbgpHkobZCg3wSptCvu1KsTwvMzMytGTBQO8MxaM75Ke5FwAQQc3vfoiwGmddCIMnsURBIY7hnHcjXMt9ipIVz8HLAZ8c=",
         "Password": "gAAAAABpXqPSW62D416YKjsrqiQ7FvL3L0YiEWPNtwNiY7IMNnwKiUpyy61_PThpaPCIqDmNEMorK7WOPpw1DWJvn3MMtuozCA=="
+    },
+    "www.irctc.co.in": {
+        "Password": "gAAAAABpXuttBkcP1Iibp0SEejXbq1G-_ygCwzIPTj0KHRyGq1EcxDbUccIu3U1bMy5-Vk7-YE6b_gxu-w6cbUMSupTf-ZTO-w=="
     }
 }

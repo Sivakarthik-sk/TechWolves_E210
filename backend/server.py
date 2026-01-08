@@ -2,137 +2,149 @@ import uvicorn
 import re
 import traceback
 import json
-import os
-import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from bs4 import BeautifulSoup
+from difflib import SequenceMatcher
 
-# --- 1. NEURAL CORE ---
-print("🧠 BOOTING CORTEX [INTERACTIVE MODE]...")
+print("🧠 BOOTING CORTEX [OPPENHEIMER V100 - FINAL]")
+
+# 1. OPTIONAL AI
 try:
     from sentence_transformers import SentenceTransformer, util
     from deep_translator import GoogleTranslator
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    model = SentenceTransformer("all-MiniLM-L6-v2")
     translator = GoogleTranslator(source='auto', target='en')
     print("✅ NEURAL ENGINE: ONLINE")
 except:
     model = None
+    translator = None
     print("⚠️ NEURAL ENGINE: OFFLINE")
 
-# --- 2. VAULT (Optional) ---
-try:
-    from vault import get_credential, save_credential
-except:
-    def get_credential(d): return {}
-    def save_credential(d, c): pass
-
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+)
 
 class UserQuery(BaseModel):
     query: str
     current_url: str
     html_content: str = ""
     dynamic_credentials: dict = {}
+    mode: str = "auto"
     language: str = "en"
+
+class Brain:
+    def __init__(self):
+        # 🟢 TELEPORTER DATABASE: Bypasses broken menus
+        self.direct_links = {
+            "irctc.co.in": {
+                "lounge": "https://www.irctctourism.com/accommodation",
+                "retiring": "https://www.rr.irctctourism.com/",
+                "hotel": "https://www.hotels.irctctourism.com/",
+                "flight": "https://www.air.irctc.co.in/",
+                "bus": "https://www.bus.irctc.co.in/",
+                "meal": "https://www.ecatering.irctc.co.in/"
+            }
+        }
+        self.ordinals = {
+            "first": 0, "1st": 0, "one": 0, "top": 0,
+            "second": 1, "2nd": 1, "two": 1,
+            "third": 2, "3rd": 2, "three": 2,
+            "fourth": 3, "4th": 3, "last": -1
+        }
+
+    def clean_text(self, soup):
+        for tag in soup(["script", "style", "noscript", "meta", "iframe", "nav", "footer"]): tag.extract()
+        return soup.get_text(separator="\n", strip=True)
+
+    def parse_ordinal(self, query):
+        # "Click result 2" -> 1
+        words = query.lower().split()
+        for w in words:
+            if w in self.ordinals: return self.ordinals[w]
+        match = re.search(r"(?:result|link|number)\s+(\d+)", query)
+        if match: return int(match.group(1)) - 1
+        return None
+
+    def check_teleport(self, url, query):
+        # Checks if we have a direct link for this intent
+        for domain, links in self.direct_links.items():
+            if domain in url:
+                for key, target_url in links.items():
+                    if key in query.lower():
+                        return target_url
+        return None
+
+brain = Brain()
 
 @app.post("/navigate")
 async def navigate(data: UserQuery):
     try:
-        # SETUP
-        raw_query = data.query
-        eng_query = raw_query.lower()
-        if model and "en" not in data.language:
-            try: eng_query = translator.translate(raw_query).lower()
+        soup = BeautifulSoup(data.html_content, "html.parser")
+        
+        # 1. TRANSLATE
+        eng_query = data.query.lower()
+        if translator and data.language and "en" not in data.language:
+            try: eng_query = translator.translate(data.query).lower()
             except: pass
-
-        domain = data.current_url.split("//")[-1].split("/")[0]
-        soup = BeautifulSoup(data.html_content, 'html.parser')
         
-        print(f"🧠 PROCESSING: {eng_query} (Creds provided: {bool(data.dynamic_credentials)})")
+        print(f"🧠 QUERY: {eng_query}")
+
+        # --- CHAT MODE ---
+        if data.mode == "chat":
+            text = brain.clean_text(soup)
+            paragraphs = [p for p in text.split('\n') if len(p) > 40]
+            if model and paragraphs:
+                scores = util.cos_sim(model.encode(eng_query), model.encode(paragraphs))[0]
+                if scores.max() > 0.3:
+                    return {"reply": paragraphs[scores.argmax()], "action": "chat_response"}
+            return {"reply": "I couldn't find that info here.", "action": "chat_response"}
+
+        # --- NAVIGATION MODE ---
         
-        response = {"message": "Processing...", "plan": [], "action": None}
+        # A. TELEPORTER (IRCTC Fix)
+        teleport_url = brain.check_teleport(data.current_url, eng_query)
+        if teleport_url:
+            return {
+                "action": "direct_teleport",
+                "url": teleport_url,
+                "message": "Teleporting to service..."
+            }
 
-        # 1. EXTRACT DATA FROM PROMPT
-        extracted_data = {}
-        if "user" in eng_query or "email" in eng_query:
-            match = re.search(r"(email|mail|user|id)\s+(?:is|as)?\s+([a-zA-Z0-9@._]+)", eng_query)
-            if match: extracted_data["Username"] = match.group(2)
-        if "pass" in eng_query:
-            match = re.search(r"(pass|password|code)\s+(?:is|as)?\s+([a-zA-Z0-9@._!#]+)", eng_query)
-            if match: extracted_data["Password"] = match.group(2)
+        # B. GOOGLE SEARCH (Index Clicker)
+        if "google" in data.current_url or "bing" in data.current_url:
+            idx = brain.parse_ordinal(eng_query)
+            if idx is not None:
+                return {
+                    "action": "google_click", 
+                    "index": idx,
+                    "message": f"Opening Result #{idx+1}"
+                }
 
-        # Merge with any credentials passed from the Popup UI
-        final_creds = {**extracted_data, **data.dynamic_credentials}
+        # C. STANDARD CLICKER
+        candidates, texts = [], []
+        for el in soup.find_all(["a", "button", "div", "span", "li", "h3", "img", "input"]):
+            t = el.get_text(" ", strip=True)
+            if el.name == 'input': t = el.get('value') or el.get('placeholder') or ""
+            if t and len(t) < 80:
+                candidates.append(el)
+                texts.append(t)
 
-        # 2. LOGIC: LOGIN FLOW
-        if "login" in eng_query or "sign in" in eng_query or final_creds:
-            
-            # A. Check for Visible Inputs
-            visible_inputs = [i for i in soup.find_all(['input', 'select']) 
-                              if i.get('type') not in ['hidden', 'submit', 'button']]
-            
-            if visible_inputs:
-                # CRITICAL CHANGE: If we lack a password, ASK THE USER
-                if not final_creds.get("Password") and not final_creds.get("Username"):
-                    return {
-                        "action": "ask_credentials", # <--- Triggers Popup
-                        "message": "Please enter your credentials.",
-                        "plan": [{"step": 1, "action": "Login Form Detected", "status": "done"}]
-                    }
-                
-                # If we HAVE credentials, Fill & Submit
-                response["action"] = "secure_autofill"
-                response["credentials"] = final_creds
-                response["message"] = "Logging in..."
-                response["plan"].append({"step": 1, "action": "Credentials Received", "status": "done"})
-                response["plan"].append({"step": 2, "action": "Autofill & Submit", "status": "active"})
-                
-                # Save for future
-                save_credential(domain, final_creds)
-                return response
+        target = None
+        if model and texts:
+            scores = util.cos_sim(model.encode(eng_query), model.encode(texts))[0]
+            if scores.max() > 0.28: target = texts[scores.argmax()]
+        
+        if not target:
+            for t in texts:
+                if eng_query in t.lower(): target = t; break
 
-            # B. If Inputs Hidden -> Click 'Login' Button first
-            else:
-                login_btn = None
-                for el in soup.find_all(['a', 'button', 'span', 'div']):
-                    if el.get_text(" ", strip=True).lower() in ['login', 'sign in', 'log in']:
-                        login_btn = el
-                        break
-                
-                if login_btn:
-                    # If we have creds, go into Combo Mode
-                    if final_creds.get("Password"):
-                        response["action"] = "open_and_fill"
-                        response["target_text"] = login_btn.get_text(strip=True)
-                        response["credentials"] = final_creds
-                        response["message"] = "Opening Login..."
-                    # If no creds, just click the button, next loop will catch inputs
-                    else:
-                        response["action"] = "spotlight_click"
-                        response["target_text"] = login_btn.get_text(strip=True)
-                        response["message"] = "Clicking Login..."
+        if target:
+            return {"action": "spotlight_click", "target_text": target, "message": f"Found: '{target}'"}
 
-        # 3. LOGIC: NAVIGATION (Default)
-        elif not response["action"]:
-            candidates, texts = [], []
-            for el in soup.find_all(['a', 'button', 'div', 'span', 'li']):
-                t = el.get_text(" ", strip=True)
-                if t and len(t) < 50:
-                    candidates.append(el)
-                    texts.append(t)
-            
-            if candidates and model:
-                scores = util.cos_sim(model.encode(eng_query), model.encode(texts))[0]
-                if scores.max() > 0.25:
-                    target = texts[scores.argmax()]
-                    response["action"] = "spotlight_click"
-                    response["target_text"] = target
-                    response["message"] = f"Clicking '{target}'"
-
-        return response
+        return {"message": "Expanding menus...", "action": "force_expand"}
 
     except Exception:
         traceback.print_exc()
